@@ -1,0 +1,33 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "api for igaming-platform",
+  "main": "server.ts",
+  "scripts": {
+    "clean": "rm -rf ./dist",
+    "build": "npm run clean && tsc",
+    "start": "node ./dist/server.js",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli",
+    "migration:run": "npm run typeorm migration:run -- -d typeorm.config.ts",
+    "migration:generate": "npm run typeorm -- -d typeorm.config.ts migration:generate ../api/src/common/db/migrations/$npm_config_name",
+    "migration:create": "npm run typeorm -- migration:create ../api/src/common/db/migrations/$npm_config_name",
+    "migration:revert": "npm run typeorm -- -d typeorm.config.ts migration:revert"
+  },
+  "author": "Aleksandar Stanojevic",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "mysql2": "^3.11.3",
+    "tsconfig-paths": "^4.2.0",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5",
+    "nodemon": "^3.1.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
