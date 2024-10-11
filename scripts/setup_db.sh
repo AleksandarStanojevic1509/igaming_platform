@@ -43,31 +43,40 @@ DROP PROCEDURE IF EXISTS sp_distribute_prizes$$
 CREATE PROCEDURE sp_distribute_prizes(IN tournamentId INT)
 BEGIN
     DECLARE total_prize DECIMAL(10, 2);
+    DECLARE is_distributed BOOLEAN;
 
-    -- don't allow prize distribution if it is already distributed for tournament
-    IF (SELECT prizes_distributed FROM tournaments WHERE tournament_id = tournamentId) = TRUE THEN
+    -- retrieve prize pool and distribution status in one query
+    SELECT prize_pool, prizes_distributed INTO total_prize, is_distributed
+    FROM tournaments 
+    WHERE tournament_id = tournamentId;
+
+    -- check if the tournament exists and if the prizes are already distributed
+    IF total_prize IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tournament does not exist or has no prize pool.';
+    ELSEIF is_distributed THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Prizes have already been distributed for this tournament.';
+    ELSE
+        -- update the account balances based on player placement
+        UPDATE players p
+        JOIN player_tournaments pt ON p.player_id = pt.player_id
+        SET p.account_balance = p.account_balance + 
+            CASE pt.placement
+                WHEN 1 THEN total_prize * 0.50
+                WHEN 2 THEN total_prize * 0.30
+                WHEN 3 THEN total_prize * 0.20
+                ELSE 0
+            END
+        WHERE pt.tournament_id = tournamentId;
+
+        -- Mark the tournament as having distributed prizes
+        UPDATE tournaments
+        SET prizes_distributed = TRUE
+        WHERE tournament_id = tournamentId;
     END IF;
-
-    -- Get the prize pool for the tournament
-    SELECT prize_pool INTO total_prize FROM tournaments WHERE tournament_id = tournamentId;
-
-    -- Distribute prizes based on placement
-    UPDATE players
-    SET account_balance = account_balance + 
-        CASE 
-            WHEN (SELECT placement FROM player_tournaments WHERE tournament_id = tournamentId AND player_id = players.player_id) = 1 THEN total_prize * 0.50
-            WHEN (SELECT placement FROM player_tournaments WHERE tournament_id = tournamentId AND player_id = players.player_id) = 2 THEN total_prize * 0.30
-            WHEN (SELECT placement FROM player_tournaments WHERE tournament_id = tournamentId AND player_id = players.player_id) = 3 THEN total_prize * 0.20
-            ELSE 0
-        END
-    WHERE player_id IN (SELECT player_id FROM player_tournaments WHERE tournament_id = tournamentId);
-
-    -- add flag to indicate that prizes have been distributed
-    UPDATE tournaments SET prizes_distributed = TRUE WHERE tournament_id = tournamentId;
 END$$
 
 DELIMITER ;
+
 
 -- trigger to check that the end date is after the start date (my mysql version does not support CHECK constraints for columns)
 DELIMITER $$
